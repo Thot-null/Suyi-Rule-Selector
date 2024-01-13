@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宿仪规则选择器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        
+        .container {
+            display: flex;
+        }
+        
+        .left-content {
+            width: 75%;
+            padding: 20px;
+            background-color: #e8f5e9;
+            /* 绿色调背景 */
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .right-content {
+            width: 25%;
+            padding: 20px;
+            background-color: #f1f8e9;
+            /* 浅绿色调背景 */
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-left: 20px;
+            /* 添加一些左边距 */
+        }
+        
+        h1,
+        h2,
+        h3 {
+            color: #2e7d32;
+            /* 绿色调文字 */
+        }
+        
+        label,
+        select,
+        button,
+        textarea {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        
+        button {
+            padding: 10px;
+            border: none;
+            background-color: #4caf50;
+            /* 绿色按钮 */
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        button:hover {
+            background-color: #43a047;
+            /* 深一点的绿色按钮 */
+        }
+        
+        textarea {
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-family: monospace;
+        }
+        
+        #output,
+        #outputJson {
+            height: 100px;
+        }
+        
+        #savedRules {
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 50px;
+            background-color: white;
+            /* 白色背景以突出区域 */
+        }
+
+        button#copyBtn{
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="left-content">
+            <h1>宿仪规则选择器</h1>
+            <form id="ruleForm">
+                <!-- 表单元素 -->
+                <label for="softwareSelect">软件名称:</label>
+                <select id="softwareSelect">
+                    <!-- 软件选项将在这里动态生成 -->
+                </select>
+
+                <label for="ruleTypeSelect">软件代号:</label>
+                <select id="ruleTypeSelect">
+                    <!-- 规则类型选项将在这里动态生成 -->
+                </select>
+
+                <label for="ruleNameSelect">规则名称:</label>
+                <select id="ruleNameSelect">
+                    <!-- 规则名称选项将在这里动态生成 -->
+                </select>
+
+                <label for="ruleDetailSelect">规则详情:</label>
+                <select id="ruleDetailSelect">
+                    <!-- 规则详情选项将在这里动态生成 -->
+                </select>
+            </form>
+
+            <button id="outputBtn">输出规则</button>
+            <textarea id="output" readonly></textarea>
+            <button id="copyBtn">复制</button>
+
+            <button id="saveBtn">保存到规则保存区</button>
+            <div id="savedRules"></div>
+            <button id="copyRulesBtn">复制规则</button>
+            <button id="clearRules">清空规则保存区</button>
+        </div>
+
+        <div class="right-content">
+            <h2>JSON合并工具</h2>
+
+            <label for="inputJson">输入JSON:</label>
+            <textarea id="inputJson" rows="10" cols="50"></textarea><br>
+
+            <button onclick="mergeJson()">提交</button>
+
+            <h3>输出JSON:</h3>
+            <textarea id="outputJson" rows="10" cols="50"></textarea><br>
+
+            <button onclick="copyToClipboard()">复制结果</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+                    // 假定这些都是从服务器获取的数据
+                    var softwareOptions = {
+                        '哔哩哔哩': {
+                            '1994036591': {
+                                '通知权限1': ['{\\"id\\":\\"允许通知\\",\\"action\\":\\"暂不\\"}'],
+                                '推送权限2': ['{\\"id\\":\\"打开推送通知\\",\\"action\\":\\"暂不\\"}']
+                            }
+                        },
+                        '饿了么': {
+                            '-1079643320': {
+                                '通知权限': ['{\\"id\\":\\"tv_title\\",\\"action\\":\\"869,781,919,831\\"}'],
+                                '超级吃货卡': ['{\\"id\\":\\"108,684,972,1578\\",\\"action\\":\\"498,1633,581,1716\\"}']
+                            }
+                        }
+                    };
+                
+                    var softwareSelect = document.getElementById('softwareSelect');
+                    var ruleTypeSelect = document.getElementById('ruleTypeSelect');
+                    var ruleNameSelect = document.getElementById('ruleNameSelect');
+                    var ruleDetailSelect = document.getElementById('ruleDetailSelect'); // 新增规则详情下拉菜单
+                    var outputBtn = document.getElementById('outputBtn');
+                    var copyBtn = document.getElementById('copyBtn');
+                    var saveBtn = document.getElementById('saveBtn');
+                    var output = document.getElementById('output');
+                    var savedRules = document.getElementById('savedRules');
+                    var clearRulesBtn = document.getElementById('clearRules'); // 清空按钮
+                
+                    // 初始化软件下拉菜单
+                    for (var software in softwareOptions) {
+                        var option = document.createElement('option');
+                        option.value = software;
+                        option.textContent = software;
+                        softwareSelect.appendChild(option);
+                    }
+                
+                    // 当软件选项变更时更新规则类型下拉菜单
+                    softwareSelect.addEventListener('change', function() {
+                        ruleTypeSelect.innerHTML = '';
+                        ruleNameSelect.innerHTML = ''; // 也清空规则名称下拉菜单
+                        ruleDetailSelect.innerHTML = ''; // 清空规则详情下拉菜单
+                        var selectedSoftware = this.value;
+                        var rules = softwareOptions[selectedSoftware];
+                        for (var ruleType in rules) {
+                            var option = document.createElement('option');
+                            option.value = ruleType;
+                            option.textContent = ruleType;
+                            ruleTypeSelect.appendChild(option);
+                        }
+                        ruleTypeSelect.dispatchEvent(new Event('change')); // 触发规则类型的变更事件
+                    });
+                
+                    // 当规则类型选项变更时更新规则名称下拉菜单
+                    ruleTypeSelect.addEventListener('change', function() {
+                        ruleNameSelect.innerHTML = '';
+                        ruleDetailSelect.innerHTML = ''; // 也清空规则详情下拉菜单
+                        var selectedRuleType = this.value;
+                        var selectedSoftware = softwareSelect.value;
+                        var ruleNames = softwareOptions[selectedSoftware][selectedRuleType];
+                        for (var ruleName in ruleNames) {
+                            var option = document.createElement('option');
+                            option.value = ruleName;
+                            option.textContent = ruleName;
+                            ruleNameSelect.appendChild(option);
+                        }
+                        ruleNameSelect.dispatchEvent(new Event('change')); // 触发规则名称的变更事件
+                    });
+                
+                    // 当规则名称选项变更时更新规则详情下拉菜单
+                    ruleNameSelect.addEventListener('change', function() {
+                        ruleDetailSelect.innerHTML = '';
+                        var selectedRuleType = ruleTypeSelect.value;
+                        var selectedSoftware = softwareSelect.value;
+                        var selectedRuleName = this.value;
+                        var details = softwareOptions[selectedSoftware][selectedRuleType][selectedRuleName];
+                        details.forEach(function(detail) {
+                            var option = document.createElement('option');
+                            option.value = detail;
+                            option.textContent = detail;
+                            ruleDetailSelect.appendChild(option);
+                        });
+                    });
+                
+                    // 输出当前选中的规则
+                    outputBtn.addEventListener('click', function() {
+                        var selectedSoftware = softwareSelect.value;
+                        var selectedRuleType = ruleTypeSelect.value;
+                        var selectedRuleName = ruleNameSelect.value;
+                        var selectedDetail = ruleDetailSelect.value; // 添加选中的规则详情
+                        output.value = '{"' + selectedRuleType + '":"{\\"popup_rules\\":[' + selectedDetail + ']}"}'; // 输出包含规则详情
+                    });
+                
+                    // 复制当前输出的规则到剪贴板
+                    copyBtn.addEventListener('click', function() {
+                        output.select();
+                        document.execCommand('copy');
+                    });
+                
+                    // 保存规则到规则保存区
+                saveBtn.addEventListener('click', function() {
+                    var ruleCount = savedRules.childElementCount;
+                    var newRule = document.createElement('div');
+                    
+                    // 根据现有规则数量决定如何添加新规则
+                    if (ruleCount === 0) {
+                        // 如果没有现有规则，则直接添加新规则，并在外围添加中括号
+                        newRule.textContent = '[' + output.value + ']';
+                    } else {
+                        // 如果已有规则，将新规则添加到现有规则之前，并在新规则之后添加逗号
+                        // 同时更新现有规则外围的中括号
+                        var lastRule = savedRules.lastChild;
+                        lastRule.textContent = lastRule.textContent.replace(/\]$/, ','); // 移除最后一个规则的闭括号，并添加逗号
+                        newRule.textContent = output.value + ']'; // 新规则后添加闭括号
+                    }
+                    
+                    savedRules.appendChild(newRule);
+                });
+                 
+                    // 获取新添加的复制规则按钮
+                    var copyRulesBtn = document.getElementById('copyRulesBtn');
+                
+                    // 为复制规则按钮添加点击事件监听器
+                    copyRulesBtn.addEventListener('click', function() {
+                        // 创建一个临时文本区域用于复制
+                        var tempTextArea = document.createElement('textarea');
+                        
+                        // 设置文本区域的内容为规则保存区的内容
+                        tempTextArea.value = savedRules.innerText;
+                        
+                        // 将文本区域添加到文档中
+                        document.body.appendChild(tempTextArea);
+                        
+                        // 选中文本区域的内容
+                        tempTextArea.select();
+                        
+                        // 执行复制命令
+                        document.execCommand('copy');
+                        
+                        // 从文档中移除文本区域
+                        document.body.removeChild(tempTextArea);
+                        
+                        // 可选：给用户反馈已复制的提示
+                        alert('规则已复制到剪贴板！');
+                    });
+                    
+                    // 清空规则保存区内容
+                    clearRulesBtn.addEventListener('click', function() {
+                        savedRules.innerHTML = '';
+                    });
+                
+                    // 初始化页面时模拟选择第一个软件以填充其他下拉列表
+                    softwareSelect.dispatchEvent(new Event('change'));
+                });
+                
+                
+                    function mergeJson() {
+                    // 获取输入框内的文本
+                    const inputJson = document.getElementById('inputJson').value;
+                    try {
+                        // 解析JSON
+                        const jsonData = JSON.parse(inputJson);
+                        const mergedData = {};
+                
+                        // 遍历数组，合并具有相同键的对象
+                        jsonData.forEach(item => {
+                            for (let key in item) {
+                                if (!mergedData[key]) {
+                                    mergedData[key] = item[key];
+                                } else {
+                                    const existingRules = JSON.parse(mergedData[key]).popup_rules;
+                                    const newRules = JSON.parse(item[key]).popup_rules;
+                                    existingRules.push(...newRules);
+                                    mergedData[key] = JSON.stringify({ popup_rules: existingRules });
+                                }
+                            }
+                        });
+                
+                        // 将合并后的对象转换回数组格式
+                        const result = Object.keys(mergedData).map(key => ({ [key]: mergedData[key] }));
+                
+                        // 显示在输出框
+                        document.getElementById('outputJson').value = JSON.stringify(result, null, 2);
+                    } catch (e) {
+                        alert('请检查输入的JSON格式！');
+                    }
+                }
+                
+                function copyToClipboard() {
+                    const outputJson = document.getElementById('outputJson');
+                    outputJson.select();
+                    document.execCommand('copy');
+                    alert('已复制成功！');
+                }
+    </script>
+</body>
+
+</html>
